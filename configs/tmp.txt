@@ -1,0 +1,3 @@
+https://www.kaggle.com/datasets/zalando-research/fashionmnist
+https://www.kaggle.com/datasets/abdallahalidev/plantvillage-dataset
+https://github.com/thsant/wgisd

@@ -1,0 +1,36 @@
+{
+  "experiment_name": "phase3_wgisd_setup",
+  "output_root": "runs",
+  "dataset": {
+    "name": "wgisd",
+    "root": "data/wgisd",
+    "version": "1.0",
+    "task": "detection",
+    "num_classes": 5
+  },
+  "model_name": "yolo_nano",
+  "model_params": {
+    "device": "cpu"
+  },
+  "strategy_name": "entropy",
+  "strategy_params": {
+    "uncertainty_modes": [
+      "classification_entropy",
+      "localization_jitter"
+    ]
+  },
+  "rounds": 5,
+  "query_size": 24,
+  "seeds": [
+    13
+  ],
+  "quantization_mode": "fp32",
+  "teacher_enabled": true,
+  "edge_device": "desktop_cpu",
+  "bootstrap": {
+    "pool_size": 300,
+    "initial_labeled_size": 30,
+    "val_size": 40,
+    "test_size": 50
+  }
+}

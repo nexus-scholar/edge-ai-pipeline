@@ -1,0 +1,47 @@
+{
+  "experiment_name": "phase3_wgisd_smoke",
+  "output_root": "runs",
+  "dataset": {
+    "name": "wgisd_smoke",
+    "root": "data/smoke_wgisd",
+    "version": "smoke",
+    "task": "detection",
+    "num_classes": 1
+  },
+  "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
+  "model_params": {
+    "images_root": "data/smoke_wgisd/images",
+    "annotations_path": "data/smoke_wgisd/annotations.json",
+    "batch_size": 1,
+    "score_batch_size": 1,
+    "epochs_per_round": 1,
+    "learning_rate": 0.0005,
+    "weight_decay": 0.0001,
+    "num_workers": 0,
+    "device": "cpu",
+    "pretrained_backbone": true,
+    "score_threshold": 0.2,
+    "score_top_n": 5,
+    "uncertainty_alpha": 0.5,
+    "localization_tta": true,
+    "teacher_max_detection_count": 20,
+    "teacher_rerank_alpha": 0.5,
+    "max_samples": 8
+  },
+  "strategy_name": "entropy",
+  "strategy_params": {},
+  "rounds": 2,
+  "query_size": 1,
+  "seeds": [
+    3
+  ],
+  "quantization_mode": "fp32",
+  "teacher_enabled": true,
+  "edge_device": "smoke_cpu",
+  "bootstrap": {
+    "pool_size": 8,
+    "initial_labeled_size": 2,
+    "val_size": 2,
+    "test_size": 2
+  }
+}

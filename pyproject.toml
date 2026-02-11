@@ -1,0 +1,26 @@
+[project]
+name = "edge-al-pipeline"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.optional-dependencies]
+phase1 = [
+    "torch>=2.6.0",
+    "torchvision>=0.21.0",
+]
+phase2 = [
+    "torch>=2.6.0",
+    "torchvision>=0.21.0",
+]
+phase3 = [
+    "torch>=2.6.0",
+    "torchvision>=0.21.0",
+]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

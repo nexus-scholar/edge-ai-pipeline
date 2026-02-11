@@ -1,0 +1,46 @@
+{
+  "experiment_name": "phase3_wgisd_detection",
+  "output_root": "runs",
+  "dataset": {
+    "name": "wgisd",
+    "root": "data/wgisd",
+    "version": "1.0",
+    "task": "detection",
+    "num_classes": 5
+  },
+  "model_name": "fasterrcnn_mobilenet_v3_large_320_fpn",
+  "model_params": {
+    "images_root": "data/wgisd/images",
+    "annotations_path": "data/wgisd/annotations.json",
+    "batch_size": 2,
+    "score_batch_size": 1,
+    "epochs_per_round": 1,
+    "learning_rate": 0.0005,
+    "weight_decay": 0.0001,
+    "num_workers": 0,
+    "device": "cpu",
+    "pretrained_backbone": true,
+    "score_threshold": 0.2,
+    "score_top_n": 10,
+    "uncertainty_alpha": 0.5,
+    "localization_tta": true,
+    "teacher_max_detection_count": 120,
+    "teacher_rerank_alpha": 0.5
+  },
+  "strategy_name": "entropy",
+  "strategy_params": {},
+  "rounds": 5,
+  "query_size": 24,
+  "seeds": [
+    13
+  ],
+  "quantization_mode": "fp32",
+  "teacher_enabled": true,
+  "edge_device": "desktop_cpu",
+  "bootstrap": {
+    "pool_size": 300,
+    "initial_labeled_size": 30,
+    "val_size": 40,
+    "test_size": 50
+  }
+}

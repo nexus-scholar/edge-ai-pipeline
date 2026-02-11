@@ -1,0 +1,38 @@
+{
+  "experiment_name": "phase1_fashion_mnist_smoke",
+  "output_root": "runs",
+  "dataset": {
+    "name": "fashion_mnist",
+    "root": "data/fashion_mnist",
+    "version": "1.0",
+    "task": "classification",
+    "num_classes": 10
+  },
+  "model_name": "simple_cnn",
+  "model_params": {
+    "batch_size": 64,
+    "score_batch_size": 128,
+    "epochs_per_round": 1,
+    "learning_rate": 0.001,
+    "num_workers": 0,
+    "device": "cpu",
+    "download": true,
+    "embedding_dim": 32
+  },
+  "strategy_name": "entropy",
+  "strategy_params": {},
+  "rounds": 2,
+  "query_size": 32,
+  "seeds": [
+    7
+  ],
+  "quantization_mode": "fp32",
+  "teacher_enabled": false,
+  "edge_device": "desktop_cpu",
+  "bootstrap": {
+    "pool_size": 2048,
+    "initial_labeled_size": 128,
+    "val_size": 256,
+    "test_size": 512
+  }
+}
