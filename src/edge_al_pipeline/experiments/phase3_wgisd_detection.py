@@ -54,13 +54,23 @@ def run_phase3_wgisd_detection(
     )
     effective_bootstrap = _effective_bootstrap(config.bootstrap, dataset_size)
 
+    # Collect all IDs from the annotation file
+    # We need to know the filenames to use as sample IDs
+    annotation_payload = json.loads(Path(annotations_path).read_text(encoding="utf-8"))
+    # Sort by ID to ensure deterministic order before shuffling in bootstrap
+    sorted_images = sorted(annotation_payload.get("images", []), key=lambda x: x["id"])
+    all_ids = [img["file_name"] for img in sorted_images]
+    
+    if max_samples_int is not None:
+        all_ids = all_ids[:max_samples_int]
+
     results: list[Phase3SeedResult] = []
     for seed in config.seeds:
         run_dir = build_run_dir(config.output_root, config.experiment_name, seed)
         artifacts = ArtifactStore(run_dir)
         artifacts.initialize(config, config_source=config_source)
 
-        splits = build_bootstrap_splits(effective_bootstrap, seed=seed)
+        splits = build_bootstrap_splits(effective_bootstrap, all_ids, seed=seed)
         artifacts.write_splits(
             splits,
             dataset_hash=f"{config.dataset.name}:{config.dataset.version}",
