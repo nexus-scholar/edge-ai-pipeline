@@ -3,7 +3,7 @@
     "seeds": [42, 101, 999],
     "dataset": {
         "name": "wgisd",
-        "root": "data/wgisd",
+        "root": "/content/data/wgisd",
         "version": "1.0",
         "task": "detection",
         "num_classes": 5
@@ -12,8 +12,8 @@
     "model_params": {
         "backbone_name": "mobilenet_v4_medium",
         "pretrained_backbone": true,
-        "images_root": "data/wgisd/data",
-        "annotations_path": "data/wgisd/coco_annotations.json",
+        "images_root": "/content/data/wgisd/data",
+        "annotations_path": "/content/data/wgisd/coco_annotations.json",
         "batch_size": 4,
         "score_batch_size": 4,
         "epochs_per_round": 10,
