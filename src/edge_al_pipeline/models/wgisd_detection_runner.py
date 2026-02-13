@@ -19,6 +19,7 @@ from torchvision.models.detection.rpn import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.transforms import functional as tvf
 import timm
+from tqdm import tqdm
 
 from edge_al_pipeline.contracts import SelectionCandidate
 
@@ -69,8 +70,9 @@ class WgisdDetectionRunner:
         self._eval_dataset = dataset
         self._num_classes = dataset.num_classes
 
-        self._val_indices = _ids_to_indices(val_ids)
-        self._test_indices = _ids_to_indices(test_ids)
+        self._id_map = self._build_id_map(dataset)
+        self._val_indices = self._filter_indices(self._ids_to_indices(val_ids))
+        self._test_indices = self._filter_indices(self._ids_to_indices(test_ids))
 
         self._model = _build_detector(
             num_classes=self._num_classes,
@@ -100,7 +102,7 @@ class WgisdDetectionRunner:
         self, round_index: int, seed: int, labeled_ids: Sequence[str]
     ) -> Mapping[str, float]:
         _set_seed(seed + round_index)
-        labeled_indices = _ids_to_indices(labeled_ids)
+        labeled_indices = self._ids_to_indices(labeled_ids)
         if not labeled_indices:
             return {
                 "loss": math.nan,
@@ -121,11 +123,20 @@ class WgisdDetectionRunner:
             collate_fn=_collate_detection,
         )
 
+        print(f"    Training on {len(labeled_indices)} samples for {self._config.epochs_per_round} epochs...")
+
         self._model.train()
         total_loss = 0.0
         steps = 0
-        for _ in range(self._config.epochs_per_round):
-            for images, targets in loader:
+        
+        epoch_iterator = tqdm(range(self._config.epochs_per_round), desc="Training Epochs", unit="epoch", position=0)
+        for epoch_idx in epoch_iterator:
+            batch_iterator = tqdm(loader, desc=f"Epoch {epoch_idx+1}", leave=False, unit="batch", position=1, mininterval=10.0)
+            
+            epoch_loss = 0.0
+            epoch_steps = 0
+            
+            for images, targets in batch_iterator:
                 images = [image.to(self._train_device) for image in images]
                 targets = [
                     {key: value.to(self._train_device) for key, value in target.items()}
@@ -136,8 +147,16 @@ class WgisdDetectionRunner:
                 loss = sum(loss_dict.values())
                 loss.backward()
                 self._optimizer.step()
-                total_loss += float(loss.item())
+                
+                loss_val = float(loss.item())
+                total_loss += loss_val
+                epoch_loss += loss_val
                 steps += 1
+                epoch_steps += 1
+            
+            if epoch_steps > 0:
+                avg_epoch_loss = epoch_loss / epoch_steps
+                epoch_iterator.set_postfix(loss=f"{avg_epoch_loss:.4f}")
 
         mean_loss = total_loss / float(steps) if steps else math.nan
         self._refresh_inference_model()
@@ -155,7 +174,7 @@ class WgisdDetectionRunner:
         }
 
     def score_unlabeled(self, unlabeled_ids: Sequence[str]) -> list[SelectionCandidate]:
-        indices = _ids_to_indices(unlabeled_ids)
+        indices = self._ids_to_indices(unlabeled_ids)
         if not indices:
             return []
 
@@ -204,6 +223,33 @@ class WgisdDetectionRunner:
                         )
                     )
         return candidates
+
+    def _build_id_map(self, dataset: _CocoDetectionDataset) -> dict[str, int]:
+        # Map sample ID (filename from COCO annotation) to index
+        id_map: dict[str, int] = {}
+        for idx, item in enumerate(dataset._images):
+            # item is {'file_name': '...', 'id': ...}
+            filename = item["file_name"]
+            id_map[filename] = idx
+            
+            # Also support synthetic IDs if needed for fallback
+            id_map[f"sample_{idx:06d}"] = idx
+        return id_map
+
+    def _ids_to_indices(self, ids: Sequence[str]) -> list[int]:
+        indices: list[int] = []
+        for sample_id in ids:
+            if sample_id in self._id_map:
+                indices.append(self._id_map[sample_id])
+            # Filter out unknown IDs implicitly (or we could log a warning)
+        return indices
+
+    def _filter_indices(self, indices: Sequence[int]) -> list[int]:
+        # Detection runner currently doesn't support max_samples via _allowed_indices
+        # logic as strictly as classification, but dataset constructor handles it.
+        # So we just return valid indices.
+        limit = len(self._train_dataset)
+        return [idx for idx in indices if 0 <= idx < limit]
 
     def _evaluate_subset(self, indices: Sequence[int]) -> dict[str, float]:
         if not indices:
@@ -577,17 +623,6 @@ def _collate_detection(batch: Sequence[tuple[torch.Tensor, dict[str, torch.Tenso
     images = [item[0] for item in batch]
     targets = [item[1] for item in batch]
     return images, targets
-
-
-def _ids_to_indices(ids: Sequence[str]) -> list[int]:
-    return [_sample_id_to_index(sample_id) for sample_id in ids]
-
-
-def _sample_id_to_index(sample_id: str) -> int:
-    token = str(sample_id)
-    if token.startswith("sample_"):
-        return int(token.replace("sample_", ""))
-    return int(token)
 
 
 def _set_seed(seed: int) -> None:
