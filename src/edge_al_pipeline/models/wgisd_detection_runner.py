@@ -511,6 +511,10 @@ def localization_uncertainty_from_detection(
         return 1.0
 
     flipped = torch.flip(image, dims=[2])
+    # Ensure flipped image is on the same device as the model
+    device = next(model.parameters()).device
+    flipped = flipped.to(device)
+    
     with torch.no_grad():
         flipped_output = model([flipped])[0]
     flip_boxes = flipped_output["boxes"].detach().cpu()
