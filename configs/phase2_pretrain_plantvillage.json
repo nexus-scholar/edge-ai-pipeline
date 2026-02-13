@@ -10,7 +10,7 @@
         "num_workers": 2
     },
     "model": {
-        "architecture": "mobilenet_v3_large",
+        "architecture": "mobilenet_v4_medium",
         "pretrained": true,
         "num_classes": 38,
         "dropout_rate": 0.2

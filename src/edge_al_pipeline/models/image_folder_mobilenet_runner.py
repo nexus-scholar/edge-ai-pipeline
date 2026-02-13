@@ -20,6 +20,7 @@ from torchvision.models import (
 from edge_al_pipeline.backbones import CLASSIFICATION_BACKBONES
 
 from edge_al_pipeline.contracts import SelectionCandidate
+import timm
 
 
 @dataclass(frozen=True)
@@ -207,7 +208,7 @@ class ImageFolderMobileNetRunner:
             "num_classes": self._num_classes,
             "backbone_state_dict": backbone_state,
         }
-        if self._config.backbone_name.startswith("mobilenet_v3_"):
+        if self._config.backbone_name.startswith("mobilenet_v3_") or self._config.backbone_name.startswith("mobilenet_v4"):
             payload["features_state_dict"] = backbone_state
         torch.save(payload, target_path)
         return target_path
@@ -289,6 +290,75 @@ class _MobileNetV3Classifier(nn.Module):
         self.features.load_state_dict(state_dict, strict=True)
 
 
+class _MobileNetV4Classifier(nn.Module):
+    def __init__(
+        self, num_classes: int, backbone_name: str, pretrained_backbone: bool
+    ) -> None:
+        super().__init__()
+        # Map our internal names to timm model names
+        # mobilenet_v4 -> defaults to hybrid medium or similar if unspecified
+        # but let's assume 'mobilenetv4_conv_medium' or similar.
+        # Checking timm registry (approximate):
+        # mobilenetv4_conv_small, mobilenetv4_conv_medium, mobilenetv4_conv_large
+        # mobilenetv4_hybrid_medium, mobilenetv4_hybrid_large
+        
+        timm_name_map = {
+            "mobilenet_v4": "mobilenetv4_conv_medium", 
+            "mobilenet_v4_small": "mobilenetv4_conv_small",
+            "mobilenet_v4_medium": "mobilenetv4_conv_medium",
+            "mobilenet_v4_large": "mobilenetv4_conv_large",
+        }
+        
+        timm_name = timm_name_map.get(backbone_name)
+        if not timm_name:
+             # Fallback or strict error
+             timm_name = "mobilenetv4_conv_medium"
+
+        self.model = timm.create_model(
+            timm_name, 
+            pretrained=pretrained_backbone, 
+            num_classes=num_classes
+        )
+        # TIMM MobileNetV4 usually has a 'classifier' head (linear)
+        # We need to expose feature extraction.
+        # TIMM models support model.forward_features(x) which returns last map
+        # Then global pool.
+        
+    def freeze_backbone(self) -> None:
+        # Freeze everything except the classifier
+        for name, param in self.model.named_parameters():
+            if "classifier" not in name and "head" not in name and "fc" not in name:
+                 param.requires_grad = False
+
+    def forward(self, inputs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        # forward_features returns unpooled features (B, C, H, W)
+        features = self.model.forward_features(inputs)
+        # forward_head applies pooling + classifier
+        # We need intermediate pooling result for embedding
+        
+        # TIMM's forward_head logic (simplified):
+        # x = self.global_pool(x)
+        # if self.drop_rate > 0.: x = F.dropout(x, p=self.drop_rate, training=self.training)
+        # x = self.classifier(x)
+        
+        pooled = self.model.forward_head(features, pre_logits=True)
+        # pooled is (B, num_features)
+        
+        logits = self.model.forward_head(features) # This re-does pooling, slightly inefficient but safe API usage
+        # Or better: manually call classifier on pooled
+        # logits = self.model.classifier(pooled)
+        
+        return logits, pooled
+
+    def backbone_state_dict(self) -> dict[str, torch.Tensor]:
+        # Return state dict of everything except classifier
+        full_state = self.model.state_dict()
+        return {k: v for k, v in full_state.items() if "classifier" not in k and "head" not in k and "fc" not in k}
+
+    def load_backbone_state_dict(self, state_dict: dict[str, torch.Tensor]) -> None:
+         self.model.load_state_dict(state_dict, strict=False)
+
+
 class _ResNetClassifier(nn.Module):
     def __init__(
         self, num_classes: int, backbone_name: str, pretrained_backbone: bool
@@ -355,17 +425,20 @@ def _build_classifier(
     num_classes: int, backbone_name: str, pretrained_backbone: bool
 ) -> nn.Module:
     normalized = backbone_name.strip().lower()
-    if normalized.startswith("mobilenet_v4"):
-        raise ValueError(
-            "backbone_name uses MobileNetV4, but this environment does not expose "
-            "MobileNetV4 in torchvision. Use v3/resnet now, or upgrade torchvision "
-            "and add a MobileNetV4 adapter before running."
-        )
+    
     if normalized not in CLASSIFICATION_BACKBONES:
         raise ValueError(
             "Unsupported classification backbone_name. Expected one of: "
             f"{sorted(CLASSIFICATION_BACKBONES)}."
         )
+        
+    if normalized.startswith("mobilenet_v4"):
+         return _MobileNetV4Classifier(
+            num_classes=num_classes,
+            backbone_name=normalized,
+            pretrained_backbone=pretrained_backbone,
+        )
+
     if normalized in {"mobilenet_v3_small", "mobilenet_v3_large"}:
         return _MobileNetV3Classifier(
             num_classes=num_classes,
