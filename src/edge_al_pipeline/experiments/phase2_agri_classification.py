@@ -57,6 +57,7 @@ def run_phase2_agri_classification(
     effective_bootstrap = _effective_bootstrap(config.bootstrap, dataset_size)
     results: list[Phase2SeedResult] = []
     for seed in config.seeds:
+        print(f"--- Starting Phase 2 Pretraining (Seed {seed}) ---")
         run_dir = build_run_dir(config.output_root, config.experiment_name, seed)
         artifacts = ArtifactStore(run_dir)
         artifacts.initialize(config, config_source=config_source)

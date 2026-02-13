@@ -79,12 +79,14 @@ class ActiveLearningPipeline:
 
     def run_seed(self, seed: int, rounds: int) -> Sequence[str]:
         for round_index in range(rounds):
+            print(f"  > AL Round {round_index}/{rounds - 1} (Seed {seed})")
             with self.profiler.measure(round_index, "train_round"):
                 train_metrics = self.model_runner.train_round(
                     round_index=round_index,
                     seed=seed,
                     labeled_ids=self.pool.labeled_ids(),
                 )
+            print(f"    Train Metrics: {train_metrics}")
             self.persist_metrics(round_index, seed, "train", dict(train_metrics))
             self.artifacts.append_profile(self.profiler.flush())
             acquired = self.run_round(round_index=round_index, seed=seed)
