@@ -3,7 +3,7 @@
     "seeds": [42],
     "dataset": {
         "name": "plant_village",
-        "root": "data/plant_village",
+        "root": "/content/data/plant_village",
         "version": "1.0",
         "task": "classification",
         "num_classes": 38
