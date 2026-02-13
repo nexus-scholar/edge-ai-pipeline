@@ -59,7 +59,8 @@ class WgisdDetectionRunner:
     ) -> None:
         self._config = config
         self._train_device = torch.device(config.device)
-        self._score_device = torch.device("cpu")
+        # Use the same device for scoring to speed it up, unless specified otherwise
+        self._score_device = torch.device(config.device) 
         self._quantization_applied = False
 
         dataset = _CocoDetectionDataset(
@@ -190,8 +191,10 @@ class WgisdDetectionRunner:
         self._inference_model.eval()
         candidates: list[SelectionCandidate] = []
         pointer = 0
+        
+        iterator = tqdm(loader, desc="Scoring Pool", unit="batch", leave=False)
         with torch.no_grad():
-            for images, _targets in loader:
+            for images, _targets in iterator:
                 for image in images:
                     output = self._predict_single(image)
                     cls_unc = classification_uncertainty_from_scores(
@@ -318,13 +321,16 @@ class WgisdDetectionRunner:
             return
 
         try:
+            # Quantization usually requires CPU
             fp32_copy = copy.deepcopy(self._model).to(torch.device("cpu")).eval()
             quantized = torch.ao.quantization.quantize_dynamic(
                 fp32_copy,
                 {nn.Linear},
                 dtype=torch.qint8,
             )
+            # If quantization is applied, force inference on CPU
             self._inference_model = quantized
+            self._score_device = torch.device("cpu") 
             self._quantization_applied = True
         except Exception:
             self._inference_model = copy.deepcopy(self._model).to(self._score_device).eval()
