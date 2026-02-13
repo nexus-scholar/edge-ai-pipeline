@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader, Dataset, Subset
 from torchvision.models import MobileNet_V3_Large_Weights
 from torchvision.models.detection import fasterrcnn_mobilenet_v3_large_320_fpn, FasterRCNN
 from torchvision.models.detection.backbone_utils import BackboneWithFPN
+from torchvision.ops.feature_pyramid_network import FeaturePyramidNetwork, LastLevelMaxPool
 from torchvision.models.detection.rpn import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.transforms import functional as tvf
@@ -406,7 +407,6 @@ def _build_detector(
         timm_name_map = {
             "mobilenet_v4_medium": "mobilenetv4_conv_medium",
             "mobilenet_v4_large": "mobilenetv4_conv_large",
-            # Add others as needed, default to medium
         }
         timm_name = timm_name_map.get(backbone_name, "mobilenetv4_conv_medium")
         
@@ -422,56 +422,42 @@ def _build_detector(
         # Get output channels for FPN
         out_channels_list = backbone_features.feature_info.channels()
         
-        # Wrap in BackboneWithFPN
-        # return_layers mapping: {'0': '0', '1': '1', ...} or indices to str(index)
-        return_layers = {str(i): str(i) for i in range(len(out_channels_list))}
-        
-        # Hack: BackboneWithFPN expects a backbone that returns a dict
-        # timm features_only returns a list. We need a wrapper.
-        class TimmFeatureWrapper(nn.Module):
-            def __init__(self, model, return_layers):
+        # Custom adapter to replace BackboneWithFPN which forces IntermediateLayerGetter
+        class TimmToFPN(nn.Module):
+            def __init__(self, backbone, in_channels_list, out_channels):
                 super().__init__()
-                self.model = model
-                self.return_layers = return_layers
-                
-            def forward(self, x):
-                features = self.model(x)
-                return {str(i): f for i, f in enumerate(features)}
+                self.backbone = backbone
+                self.fpn = FeaturePyramidNetwork(
+                    in_channels_list=in_channels_list,
+                    out_channels=out_channels,
+                    extra_blocks=LastLevelMaxPool(),
+                )
+                self.out_channels = out_channels
 
-        # Re-wrap properly
-        backbone_wrapper = TimmFeatureWrapper(backbone_features, return_layers)
-        
+            def forward(self, x):
+                # timm features_only returns a list [f1, f2, f3, f4]
+                features = self.backbone(x)
+                # FPN expects a dict input
+                features_dict = {str(i): f for i, f in enumerate(features)}
+                return self.fpn(features_dict)
+
         # Create FPN backbone
-        # 256 is standard internal representation size
-        backbone_fpn = BackboneWithFPN(
-            backbone_wrapper, 
-            return_layers=return_layers,
+        backbone_fpn = TimmToFPN(
+            backbone_features,
             in_channels_list=out_channels_list,
             out_channels=256
         )
         
         # Anchor generator
-        # stride 4, 8, 16, 32 anchors
         anchor_generator = AnchorGenerator(
             sizes=((32,), (64,), (128,), (256,)),
             aspect_ratios=((0.5, 1.0, 2.0),) * 4
         )
         
-        # ROI Pooler
-        roi_pooler = torch.ops.torchvision.roi_align(
-            output_size=(7, 7),
-            spatial_scale=1.0,
-            sampling_ratio=2,
-            aligned=True
-        )
-        # Actually FasterRCNN creates default roi_pooler if None, 
-        # but we need to match feature map names '0', '1', '2', '3' which BackboneWithFPN produces
-        
         model = FasterRCNN(
             backbone_fpn,
             num_classes=num_classes + 1, # +1 for background
             rpn_anchor_generator=anchor_generator,
-            # Let FasterRCNN build default roi_pooler handling '0','1','2','3' inputs from FPN
         )
         return model
 
