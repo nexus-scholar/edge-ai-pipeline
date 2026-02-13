@@ -1,0 +1,40 @@
+{
+    "experiment_name": "phase3_wgisd_domain_guided_v1",
+    "seeds": [42, 101, 999],
+    "dataset": {
+        "name": "wgisd",
+        "root": "data/wgisd",
+        "version": "1.0",
+        "task": "detection",
+        "num_classes": 5
+    },
+    "model_name": "wgisd_detection_fasterrcnn_mobilenetv3",
+    "model_params": {
+        "backbone_name": "mobilenet_v3_large_320_fpn",
+        "pretrained_backbone": true,
+        "images_root": "data/wgisd/data",
+        "annotations_path": "data/wgisd/coco_annotations.json",
+        "batch_size": 4,
+        "score_batch_size": 4,
+        "epochs_per_round": 10,
+        "learning_rate": 0.0005,
+        "uncertainty_alpha": 0.5,
+        "localization_tta": true,
+        "score_threshold": 0.25
+    },
+    "strategy_name": "domain_guided",
+    "strategy_params": {
+        "domain_weight": 0.5,
+        "uncertainty_key": "uncertainty_combined",
+        "domain_confusion_key": "det_count"
+    },
+    "rounds": 5,
+    "query_size": 100,
+    "bootstrap": {
+        "pool_size": 3000,
+        "initial_labeled_size": 100,
+        "val_size": 500,
+        "test_size": 500
+    },
+    "output_root": "runs/phase3_wgisd"
+}
