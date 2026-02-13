@@ -21,6 +21,7 @@ from edge_al_pipeline.backbones import CLASSIFICATION_BACKBONES
 
 from edge_al_pipeline.contracts import SelectionCandidate
 import timm
+from tqdm import tqdm
 
 
 @dataclass(frozen=True)
@@ -137,9 +138,16 @@ class ImageFolderMobileNetRunner:
         total_loss = 0.0
         total = 0
         correct = 0
-        for epoch_idx in range(self._config.epochs_per_round):
-            if epoch_idx % 5 == 0:  # Log every 5 epochs to avoid spam
-                print(f"    Epoch {epoch_idx + 1}/{self._config.epochs_per_round}")
+        
+        epoch_iterator = tqdm(range(self._config.epochs_per_round), desc="Training Epochs", unit="epoch")
+        for epoch_idx in epoch_iterator:
+            # if epoch_idx % 5 == 0:  # Log every 5 epochs to avoid spam - removed in favor of tqdm
+            #    print(f"    Epoch {epoch_idx + 1}/{self._config.epochs_per_round}")
+            
+            epoch_loss = 0.0
+            epoch_total = 0
+            epoch_correct = 0
+            
             for images, labels in train_loader:
                 images = images.to(self._device)
                 labels = labels.to(self._device)
@@ -150,9 +158,20 @@ class ImageFolderMobileNetRunner:
                 self._optimizer.step()
 
                 batch_size = labels.size(0)
+                # Round totals
                 total_loss += loss.item() * batch_size
                 total += batch_size
                 correct += (logits.argmax(dim=1) == labels).sum().item()
+                
+                # Epoch totals for tqdm
+                epoch_loss += loss.item() * batch_size
+                epoch_total += batch_size
+                epoch_correct += (logits.argmax(dim=1) == labels).sum().item()
+            
+            if epoch_total > 0:
+                avg_loss = epoch_loss / epoch_total
+                avg_acc = epoch_correct / epoch_total
+                epoch_iterator.set_postfix(loss=f"{avg_loss:.4f}", acc=f"{avg_acc:.4f}")
 
         train_accuracy = float(correct) / float(total) if total else math.nan
         mean_loss = total_loss / float(total) if total else math.nan
