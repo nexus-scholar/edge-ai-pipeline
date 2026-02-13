@@ -78,8 +78,9 @@ class ImageFolderMobileNetRunner:
                 f"dataset={inferred_num_classes}."
             )
         self._num_classes = inferred_num_classes
-        self._val_indices = self._filter_indices(_ids_to_indices(val_ids))
-        self._test_indices = self._filter_indices(_ids_to_indices(test_ids))
+        self._id_map = self._build_id_map(self._train_dataset)
+        self._val_indices = self._filter_indices(self._ids_to_indices(val_ids))
+        self._test_indices = self._filter_indices(self._ids_to_indices(test_ids))
 
         self._model = _build_classifier(
             num_classes=self._num_classes,
@@ -212,6 +213,41 @@ class ImageFolderMobileNetRunner:
             payload["features_state_dict"] = backbone_state
         torch.save(payload, target_path)
         return target_path
+
+    def _build_id_map(self, dataset: datasets.ImageFolder) -> dict[str, int]:
+        # Map sample ID (filename without extension? or full path?)
+        # Current bootstrap logic uses 'sample_000000' which implies index-based mapping
+        # BUT for real data, we want filenames.
+        # Let's support both: if 'sample_XXXX' use index, else use filename.
+        
+        # However, ImageFolder samples are (path, class_index).
+        # We need a robust way to identify them.
+        # For this pipeline, we will assume sample_id == os.path.basename(path)
+        # If there are duplicates, this will break (but ImageFolder is flat-ish per class).
+        
+        id_map: dict[str, int] = {}
+        for idx, (path, _) in enumerate(dataset.samples):
+            # Strategy 1: index-based fallback (sample_000000)
+            id_map[f"sample_{idx:06d}"] = idx
+            
+            # Strategy 2: real filename
+            filename = Path(path).name
+            id_map[filename] = idx
+            
+        return id_map
+
+    def _ids_to_indices(self, ids: Sequence[str]) -> list[int]:
+        indices: list[int] = []
+        for sample_id in ids:
+            if sample_id in self._id_map:
+                indices.append(self._id_map[sample_id])
+            else:
+                # Fallback for old behavior just in case
+                try:
+                    indices.append(_sample_id_to_index(sample_id))
+                except ValueError:
+                    pass # Ignore unknown IDs, filter logic handles empty lists
+        return indices
 
     def _evaluate_subset(self, indices: Sequence[int]) -> float:
         if not indices:

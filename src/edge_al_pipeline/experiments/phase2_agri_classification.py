@@ -56,13 +56,28 @@ def run_phase2_agri_classification(
 
     effective_bootstrap = _effective_bootstrap(config.bootstrap, dataset_size)
     results: list[Phase2SeedResult] = []
+    
+    # Collect all IDs once (deterministically)
+    # We replicate the logic from bootstrap.py to fetch real IDs
+    dataset_root = Path(config.dataset.root)
+    all_ids = []
+    if dataset_root.exists() and dataset_root.is_dir():
+        for class_dir in sorted(dataset_root.iterdir()):
+            if class_dir.is_dir():
+                for image_file in sorted(class_dir.iterdir()):
+                    if image_file.is_file():
+                         all_ids.append(image_file.name)
+    else:
+        # Fallback should arguably be an error here, but for consistency:
+        all_ids = [f"sample_{index:06d}" for index in range(effective_bootstrap.pool_size)]
+
     for seed in config.seeds:
         print(f"--- Starting Phase 2 Pretraining (Seed {seed}) ---")
         run_dir = build_run_dir(config.output_root, config.experiment_name, seed)
         artifacts = ArtifactStore(run_dir)
         artifacts.initialize(config, config_source=config_source)
 
-        splits = build_bootstrap_splits(effective_bootstrap, seed=seed)
+        splits = build_bootstrap_splits(effective_bootstrap, all_ids, seed=seed)
         artifacts.write_splits(
             splits,
             dataset_hash=f"{config.dataset.name}:{config.dataset.version}",
