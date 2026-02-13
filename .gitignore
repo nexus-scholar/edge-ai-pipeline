@@ -6,3 +6,4 @@ tmp/
 .pytest_cache/
 data/
 *.egg-info/
+docs/PhD Paper Ideas_ Active Learning.pdf
