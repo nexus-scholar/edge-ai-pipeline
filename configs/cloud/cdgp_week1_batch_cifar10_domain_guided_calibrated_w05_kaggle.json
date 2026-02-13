@@ -11,7 +11,7 @@
   "model_params": {
     "batch_size": 32,
     "score_batch_size": 128,
-    "epochs_per_round": 1,
+    "epochs_per_round": 5,
     "learning_rate": 0.001,
     "num_workers": 2,
     "device": "cuda",
