@@ -22,7 +22,7 @@
     "rounds": 1,
     "query_size": 1,
     "bootstrap": {
-        "pool_size": 50000,
+        "pool_size": 70000,
         "initial_labeled_size": 40000,
         "val_size": 5000,
         "test_size": 5000
