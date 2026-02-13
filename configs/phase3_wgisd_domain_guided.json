@@ -28,13 +28,13 @@
         "uncertainty_key": "uncertainty_combined",
         "domain_confusion_key": "det_count"
     },
-    "rounds": 5,
-    "query_size": 100,
+    "rounds": 6,
+    "query_size": 20,
     "bootstrap": {
-        "pool_size": 3000,
-        "initial_labeled_size": 100,
-        "val_size": 500,
-        "test_size": 500
+        "pool_size": 242,
+        "initial_labeled_size": 24,
+        "val_size": 40,
+        "test_size": 40
     },
     "output_root": "runs/phase3_wgisd"
 }
