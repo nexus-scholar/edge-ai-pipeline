@@ -5,12 +5,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+from edge_al_pipeline.backbones import SUPPORTED_BACKBONES, resolve_backbone_name
+
 TaskType = Literal["classification", "detection", "segmentation"]
-StrategyName = Literal["random", "entropy", "k_center_greedy"]
+StrategyName = Literal["random", "entropy", "k_center_greedy", "domain_guided"]
 QuantizationMode = Literal["fp32", "int8"]
 
 _SUPPORTED_TASKS = {"classification", "detection", "segmentation"}
-_SUPPORTED_STRATEGIES = {"random", "entropy", "k_center_greedy"}
+_SUPPORTED_STRATEGIES = {"random", "entropy", "k_center_greedy", "domain_guided"}
 _SUPPORTED_QUANTIZATION = {"fp32", "int8"}
 
 
@@ -167,6 +169,12 @@ class ExperimentConfig:
             raise ValueError(
                 "strategy_name must be one of "
                 f"{sorted(_SUPPORTED_STRATEGIES)}; got {self.strategy_name!r}."
+            )
+        backbone_name = resolve_backbone_name(self.model_name, self.model_params)
+        if backbone_name is not None and backbone_name not in SUPPORTED_BACKBONES:
+            raise ValueError(
+                "model_params.backbone_name must be one of "
+                f"{sorted(SUPPORTED_BACKBONES)}; got {backbone_name!r}."
             )
         if self.rounds <= 0:
             raise ValueError("rounds must be greater than 0.")

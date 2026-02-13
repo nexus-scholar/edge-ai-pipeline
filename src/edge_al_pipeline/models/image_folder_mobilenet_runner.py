@@ -10,7 +10,14 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, models, transforms
-from torchvision.models import MobileNet_V3_Small_Weights
+from torchvision.models import (
+    MobileNet_V3_Large_Weights,
+    MobileNet_V3_Small_Weights,
+    ResNet18_Weights,
+    ResNet50_Weights,
+)
+
+from edge_al_pipeline.backbones import CLASSIFICATION_BACKBONES
 
 from edge_al_pipeline.contracts import SelectionCandidate
 
@@ -27,15 +34,16 @@ class ImageFolderMobileNetRunnerConfig:
     image_size: int = 224
     pretrained_backbone: bool = True
     freeze_backbone: bool = False
+    backbone_name: str = "mobilenet_v3_small"
     backbone_checkpoint: str | None = None
     num_classes: int | None = None
     max_samples: int | None = None
 
 
 class ImageFolderMobileNetRunner:
-    """MobileNetV3 runner for controlled agriculture classification datasets."""
+    """ImageFolder runner with interchangeable classification backbones."""
 
-    name = "mobilenet_v3_small_imagefolder"
+    name = "imagefolder_classifier"
 
     def __init__(
         self,
@@ -72,8 +80,9 @@ class ImageFolderMobileNetRunner:
         self._val_indices = self._filter_indices(_ids_to_indices(val_ids))
         self._test_indices = self._filter_indices(_ids_to_indices(test_ids))
 
-        self._model = _MobileNetV3Classifier(
+        self._model = _build_classifier(
             num_classes=self._num_classes,
+            backbone_name=config.backbone_name,
             pretrained_backbone=config.pretrained_backbone,
         ).to(self._device)
         if config.backbone_checkpoint:
@@ -192,11 +201,14 @@ class ImageFolderMobileNetRunner:
 
     def export_backbone(self, target_path: Path) -> Path:
         target_path.parent.mkdir(parents=True, exist_ok=True)
+        backbone_state = self._model.backbone_state_dict()
         payload = {
-            "model": "mobilenet_v3_small",
+            "model": self._config.backbone_name,
             "num_classes": self._num_classes,
-            "features_state_dict": self._model.features.state_dict(),
+            "backbone_state_dict": backbone_state,
         }
+        if self._config.backbone_name.startswith("mobilenet_v3_"):
+            payload["features_state_dict"] = backbone_state
         torch.save(payload, target_path)
         return target_path
 
@@ -229,14 +241,29 @@ class ImageFolderMobileNetRunner:
 
 
 class _MobileNetV3Classifier(nn.Module):
-    def __init__(self, num_classes: int, pretrained_backbone: bool) -> None:
+    def __init__(
+        self, num_classes: int, backbone_name: str, pretrained_backbone: bool
+    ) -> None:
         super().__init__()
-        weights = (
-            MobileNet_V3_Small_Weights.IMAGENET1K_V1
-            if pretrained_backbone
-            else None
-        )
-        backbone = models.mobilenet_v3_small(weights=weights)
+        if backbone_name == "mobilenet_v3_small":
+            weights = (
+                MobileNet_V3_Small_Weights.IMAGENET1K_V1
+                if pretrained_backbone
+                else None
+            )
+            backbone = models.mobilenet_v3_small(weights=weights)
+        elif backbone_name == "mobilenet_v3_large":
+            weights = (
+                MobileNet_V3_Large_Weights.IMAGENET1K_V1
+                if pretrained_backbone
+                else None
+            )
+            backbone = models.mobilenet_v3_large(weights=weights)
+        else:
+            raise ValueError(
+                "Unsupported MobileNet backbone_name. "
+                "Expected 'mobilenet_v3_small' or 'mobilenet_v3_large'."
+            )
         in_features = backbone.classifier[-1].in_features
         backbone.classifier[-1] = nn.Linear(in_features, num_classes)
         self.model = backbone
@@ -254,6 +281,102 @@ class _MobileNetV3Classifier(nn.Module):
         embedding = torch.flatten(pooled, 1)
         logits = self.classifier(embedding)
         return logits, embedding
+
+    def backbone_state_dict(self) -> dict[str, torch.Tensor]:
+        return self.features.state_dict()
+
+    def load_backbone_state_dict(self, state_dict: dict[str, torch.Tensor]) -> None:
+        self.features.load_state_dict(state_dict, strict=True)
+
+
+class _ResNetClassifier(nn.Module):
+    def __init__(
+        self, num_classes: int, backbone_name: str, pretrained_backbone: bool
+    ) -> None:
+        super().__init__()
+        if backbone_name == "resnet18":
+            weights = ResNet18_Weights.IMAGENET1K_V1 if pretrained_backbone else None
+            backbone = models.resnet18(weights=weights)
+        elif backbone_name == "resnet50":
+            weights = ResNet50_Weights.IMAGENET1K_V2 if pretrained_backbone else None
+            backbone = models.resnet50(weights=weights)
+        else:
+            raise ValueError(
+                "Unsupported ResNet backbone_name. Expected 'resnet18' or 'resnet50'."
+            )
+        in_features = backbone.fc.in_features
+        backbone.fc = nn.Linear(in_features, num_classes)
+        self.model = backbone
+
+    def freeze_backbone(self) -> None:
+        for name, parameter in self.model.named_parameters():
+            if name.startswith("fc."):
+                continue
+            parameter.requires_grad = False
+
+    def forward(self, inputs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        x = self.model.conv1(inputs)
+        x = self.model.bn1(x)
+        x = self.model.relu(x)
+        x = self.model.maxpool(x)
+        x = self.model.layer1(x)
+        x = self.model.layer2(x)
+        x = self.model.layer3(x)
+        x = self.model.layer4(x)
+        x = self.model.avgpool(x)
+        embedding = torch.flatten(x, 1)
+        logits = self.model.fc(embedding)
+        return logits, embedding
+
+    def backbone_state_dict(self) -> dict[str, torch.Tensor]:
+        return {
+            key: value
+            for key, value in self.model.state_dict().items()
+            if not key.startswith("fc.")
+        }
+
+    def load_backbone_state_dict(self, state_dict: dict[str, torch.Tensor]) -> None:
+        current = self.model.state_dict()
+        merged = {
+            key: value
+            for key, value in state_dict.items()
+            if key in current and not key.startswith("fc.")
+        }
+        current.update(merged)
+        missing, unexpected = self.model.load_state_dict(current, strict=False)
+        invalid_missing = [key for key in missing if not key.startswith("fc.")]
+        if invalid_missing or unexpected:
+            raise ValueError(
+                "Backbone checkpoint is incompatible with this resnet architecture."
+            )
+
+
+def _build_classifier(
+    num_classes: int, backbone_name: str, pretrained_backbone: bool
+) -> nn.Module:
+    normalized = backbone_name.strip().lower()
+    if normalized.startswith("mobilenet_v4"):
+        raise ValueError(
+            "backbone_name uses MobileNetV4, but this environment does not expose "
+            "MobileNetV4 in torchvision. Use v3/resnet now, or upgrade torchvision "
+            "and add a MobileNetV4 adapter before running."
+        )
+    if normalized not in CLASSIFICATION_BACKBONES:
+        raise ValueError(
+            "Unsupported classification backbone_name. Expected one of: "
+            f"{sorted(CLASSIFICATION_BACKBONES)}."
+        )
+    if normalized in {"mobilenet_v3_small", "mobilenet_v3_large"}:
+        return _MobileNetV3Classifier(
+            num_classes=num_classes,
+            backbone_name=normalized,
+            pretrained_backbone=pretrained_backbone,
+        )
+    return _ResNetClassifier(
+        num_classes=num_classes,
+        backbone_name=normalized,
+        pretrained_backbone=pretrained_backbone,
+    )
 
 
 def _build_transforms(image_size: int):
@@ -293,14 +416,18 @@ def _set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def _load_backbone_weights(model: _MobileNetV3Classifier, checkpoint_path: Path) -> None:
+def _load_backbone_weights(model: nn.Module, checkpoint_path: Path) -> None:
     if not checkpoint_path.exists():
         raise FileNotFoundError(f"Backbone checkpoint not found: {checkpoint_path}")
     payload = torch.load(checkpoint_path, map_location="cpu")
-    state_dict = payload.get("features_state_dict")
+    state_dict = payload.get("backbone_state_dict")
+    if not isinstance(state_dict, dict):
+        state_dict = payload.get("features_state_dict")
     if not isinstance(state_dict, dict):
         raise ValueError(
-            "Backbone checkpoint payload missing 'features_state_dict'. "
+            "Backbone checkpoint payload missing 'backbone_state_dict'. "
             f"Path: {checkpoint_path}"
         )
-    model.features.load_state_dict(state_dict, strict=True)
+    if not hasattr(model, "load_backbone_state_dict"):
+        raise ValueError("Model does not support backbone checkpoint loading.")
+    model.load_backbone_state_dict(state_dict)

@@ -54,7 +54,7 @@ def run_phase1_fashion_mnist(
         )
 
         pool = DataPoolManager.from_splits(splits)
-        strategy = build_strategy(config.strategy_name)
+        strategy = build_strategy(config.strategy_name, config.strategy_params)
         profiler = EdgeProfiler(
             device=config.edge_device,
             quantization_mode=config.quantization_mode,
@@ -106,3 +106,4 @@ def _runner_config_from_experiment(config: ExperimentConfig) -> FashionMnistRunn
         download=bool(params.get("download", True)),
         embedding_dim=int(params.get("embedding_dim", 64)),
     )
+

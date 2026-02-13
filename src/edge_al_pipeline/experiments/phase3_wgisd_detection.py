@@ -5,6 +5,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from edge_al_pipeline.backbones import resolve_backbone_name
 from edge_al_pipeline.artifacts import ArtifactStore
 from edge_al_pipeline.config import BootstrapConfig, ExperimentConfig
 from edge_al_pipeline.data_pool import DataPoolManager
@@ -66,7 +67,7 @@ def run_phase3_wgisd_detection(
         )
 
         pool = DataPoolManager.from_splits(splits)
-        strategy = build_strategy(config.strategy_name)
+        strategy = build_strategy(config.strategy_name, config.strategy_params)
         profiler = EdgeProfiler(
             device=config.edge_device,
             quantization_mode=config.quantization_mode,
@@ -186,6 +187,9 @@ def _runner_config_from_experiment(
     config: ExperimentConfig, images_root: str, annotations_path: str
 ) -> WgisdDetectionRunnerConfig:
     params = config.model_params
+    backbone_name = resolve_backbone_name(config.model_name, params)
+    if backbone_name is None:
+        backbone_name = "mobilenet_v3_large_320_fpn"
     max_samples = params.get("max_samples")
     max_samples_int = int(max_samples) if max_samples is not None else None
     return WgisdDetectionRunnerConfig(
@@ -205,6 +209,7 @@ def _runner_config_from_experiment(
         localization_tta=bool(params.get("localization_tta", True)),
         max_samples=max_samples_int,
         quantization_mode=config.quantization_mode,
+        backbone_name=backbone_name,
     )
 
 
@@ -252,3 +257,4 @@ def _write_phase3_manifest(
         encoding="utf-8",
     )
     return path
+

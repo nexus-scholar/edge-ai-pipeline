@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from edge_al_pipeline.backbones import resolve_backbone_name
 from edge_al_pipeline.artifacts import ArtifactStore
 from edge_al_pipeline.config import ExperimentConfig
 from edge_al_pipeline.data_pool import DataPoolManager
@@ -49,7 +50,7 @@ def run_phase1b_cifar10(
         )
 
         pool = DataPoolManager.from_splits(splits)
-        strategy = build_strategy(config.strategy_name)
+        strategy = build_strategy(config.strategy_name, config.strategy_params)
         profiler = EdgeProfiler(
             device=config.edge_device,
             quantization_mode=config.quantization_mode,
@@ -90,6 +91,17 @@ def run_phase1b_cifar10(
 
 def _runner_config_from_experiment(config: ExperimentConfig) -> Cifar10RunnerConfig:
     params = config.model_params
+    backbone_name = resolve_backbone_name(config.model_name, params)
+    if backbone_name is None:
+        model_name = config.model_name.strip().lower()
+        if model_name in {"simple_cnn", "simple_cnn_cifar10"}:
+            backbone_name = "simple_cnn"
+    if backbone_name is None:
+        raise ValueError(
+            "Phase 1b requires model_name/model_params.backbone_name to resolve a "
+            "supported CIFAR10 backbone."
+        )
+    default_image_size = 32 if backbone_name == "simple_cnn" else 224
     return Cifar10RunnerConfig(
         data_root=config.dataset.root,
         batch_size=int(params.get("batch_size", 128)),
@@ -101,4 +113,8 @@ def _runner_config_from_experiment(config: ExperimentConfig) -> Cifar10RunnerCon
         download=bool(params.get("download", True)),
         embedding_dim=int(params.get("embedding_dim", 128)),
         low_contrast_factor=float(params.get("low_contrast_factor", 0.5)),
+        backbone_name=backbone_name,
+        pretrained_backbone=bool(params.get("pretrained_backbone", True)),
+        image_size=int(params.get("image_size", default_image_size)),
     )
+

@@ -1,0 +1,42 @@
+{
+  "experiment_name": "phase1b_cifar10_smoke_backbone_resnet18",
+  "output_root": "runs",
+  "dataset": {
+    "name": "cifar10",
+    "root": "data/cifar10",
+    "version": "1.0",
+    "task": "classification",
+    "num_classes": 10
+  },
+  "model_name": "simple_cnn_cifar10",
+  "model_params": {
+    "batch_size": 8,
+    "score_batch_size": 16,
+    "epochs_per_round": 1,
+    "learning_rate": 0.001,
+    "num_workers": 0,
+    "device": "cuda",
+    "download": true,
+    "embedding_dim": 16,
+    "low_contrast_factor": 0.5,
+    "backbone_name": "resnet18",
+    "pretrained_backbone": false,
+    "image_size": 64
+  },
+  "strategy_name": "entropy",
+  "strategy_params": {},
+  "rounds": 1,
+  "query_size": 4,
+  "seeds": [
+    7
+  ],
+  "quantization_mode": "fp32",
+  "teacher_enabled": false,
+  "edge_device": "desktop_gpu",
+  "bootstrap": {
+    "pool_size": 64,
+    "initial_labeled_size": 8,
+    "val_size": 8,
+    "test_size": 8
+  }
+}

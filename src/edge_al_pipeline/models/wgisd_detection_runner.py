@@ -38,6 +38,7 @@ class WgisdDetectionRunnerConfig:
     localization_tta: bool = True
     max_samples: int | None = None
     quantization_mode: str = "fp32"
+    backbone_name: str = "mobilenet_v3_large_320_fpn"
 
 
 class WgisdDetectionRunner:
@@ -71,6 +72,7 @@ class WgisdDetectionRunner:
         self._model = _build_detector(
             num_classes=self._num_classes,
             pretrained_backbone=config.pretrained_backbone,
+            backbone_name=config.backbone_name,
         ).to(self._train_device)
         self._optimizer = torch.optim.AdamW(
             self._model.parameters(),
@@ -347,7 +349,14 @@ class _CocoDetectionDataset(Dataset[tuple[torch.Tensor, dict[str, torch.Tensor]]
         return image_tensor, target
 
 
-def _build_detector(num_classes: int, pretrained_backbone: bool) -> nn.Module:
+def _build_detector(
+    num_classes: int, pretrained_backbone: bool, backbone_name: str
+) -> nn.Module:
+    if backbone_name != "mobilenet_v3_large_320_fpn":
+        raise ValueError(
+            "Unsupported detection backbone_name. "
+            "Expected 'mobilenet_v3_large_320_fpn'."
+        )
     weights_backbone = (
         MobileNet_V3_Large_Weights.IMAGENET1K_V1 if pretrained_backbone else None
     )

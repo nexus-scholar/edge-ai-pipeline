@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from edge_al_pipeline.backbones import resolve_backbone_name
 from edge_al_pipeline.artifacts import ArtifactStore
 from edge_al_pipeline.config import BootstrapConfig, ExperimentConfig
 from edge_al_pipeline.data_pool import DataPoolManager
@@ -67,7 +68,7 @@ def run_phase2_agri_classification(
         )
 
         pool = DataPoolManager.from_splits(splits)
-        strategy = build_strategy(config.strategy_name)
+        strategy = build_strategy(config.strategy_name, config.strategy_params)
         profiler = EdgeProfiler(
             device=config.edge_device,
             quantization_mode=config.quantization_mode,
@@ -114,6 +115,9 @@ def _runner_config_from_experiment(
     config: ExperimentConfig, num_classes: int
 ) -> ImageFolderMobileNetRunnerConfig:
     params = config.model_params
+    backbone_name = resolve_backbone_name(config.model_name, params)
+    if backbone_name is None:
+        backbone_name = "mobilenet_v3_small"
     max_samples = params.get("max_samples")
     max_samples_int = int(max_samples) if max_samples is not None else None
     return ImageFolderMobileNetRunnerConfig(
@@ -127,6 +131,7 @@ def _runner_config_from_experiment(
         image_size=int(params.get("image_size", 224)),
         pretrained_backbone=bool(params.get("pretrained_backbone", True)),
         freeze_backbone=bool(params.get("freeze_backbone", False)),
+        backbone_name=backbone_name,
         backbone_checkpoint=(
             str(params["backbone_checkpoint"])
             if "backbone_checkpoint" in params
@@ -152,3 +157,4 @@ def _effective_bootstrap(bootstrap: BootstrapConfig, dataset_size: int) -> Boots
         val_size=bootstrap.val_size,
         test_size=bootstrap.test_size,
     )
+

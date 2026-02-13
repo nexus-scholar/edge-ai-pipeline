@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from edge_al_pipeline.config import load_experiment_config, save_experiment_config
 
 
@@ -76,3 +78,103 @@ def test_detection_config_allows_single_class(tmp_path):
     config_path.write_text(json.dumps(raw), encoding="utf-8")
     config = load_experiment_config(config_path)
     assert config.dataset.num_classes == 1
+
+
+def test_config_rejects_unknown_strategy_name(tmp_path):
+    raw = {
+        "experiment_name": "bad_strategy",
+        "output_root": "runs",
+        "dataset": {
+            "name": "fashion_mnist",
+            "root": "data/fashion_mnist",
+            "version": "1.0",
+            "task": "classification",
+            "num_classes": 10,
+        },
+        "model_name": "simple_cnn",
+        "strategy_name": "not_a_strategy",
+        "rounds": 1,
+        "query_size": 1,
+        "seeds": [1],
+        "quantization_mode": "fp32",
+        "teacher_enabled": False,
+        "edge_device": "cpu",
+        "bootstrap": {
+            "pool_size": 10,
+            "initial_labeled_size": 2,
+            "val_size": 2,
+            "test_size": 2,
+        },
+    }
+    config_path = tmp_path / "bad_strategy.json"
+    config_path.write_text(json.dumps(raw), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="strategy_name must be one of"):
+        load_experiment_config(config_path)
+
+
+def test_config_rejects_unknown_backbone_name(tmp_path):
+    raw = {
+        "experiment_name": "bad_backbone",
+        "output_root": "runs",
+        "dataset": {
+            "name": "cifar10",
+            "root": "data/cifar10",
+            "version": "1.0",
+            "task": "classification",
+            "num_classes": 10,
+        },
+        "model_name": "simple_cnn_cifar10",
+        "model_params": {"backbone_name": "mystery_net"},
+        "strategy_name": "entropy",
+        "rounds": 1,
+        "query_size": 1,
+        "seeds": [1],
+        "quantization_mode": "fp32",
+        "teacher_enabled": False,
+        "edge_device": "cpu",
+        "bootstrap": {
+            "pool_size": 10,
+            "initial_labeled_size": 2,
+            "val_size": 2,
+            "test_size": 2,
+        },
+    }
+    config_path = tmp_path / "bad_backbone.json"
+    config_path.write_text(json.dumps(raw), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="model_params.backbone_name must be one of"):
+        load_experiment_config(config_path)
+
+
+def test_config_accepts_mobilenet_v4_backbone_name(tmp_path):
+    raw = {
+        "experiment_name": "mobilenet_v4_config_ok",
+        "output_root": "runs",
+        "dataset": {
+            "name": "cifar10",
+            "root": "data/cifar10",
+            "version": "1.0",
+            "task": "classification",
+            "num_classes": 10,
+        },
+        "model_name": "simple_cnn_cifar10",
+        "model_params": {"backbone_name": "mobilenet_v4"},
+        "strategy_name": "entropy",
+        "rounds": 1,
+        "query_size": 1,
+        "seeds": [1],
+        "quantization_mode": "fp32",
+        "teacher_enabled": False,
+        "edge_device": "cpu",
+        "bootstrap": {
+            "pool_size": 10,
+            "initial_labeled_size": 2,
+            "val_size": 2,
+            "test_size": 2,
+        },
+    }
+    config_path = tmp_path / "mobilenet_v4.json"
+    config_path.write_text(json.dumps(raw), encoding="utf-8")
+    config = load_experiment_config(config_path)
+    assert config.model_params["backbone_name"] == "mobilenet_v4"

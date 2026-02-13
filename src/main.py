@@ -33,13 +33,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path("configs/phase1_fashion_mnist.json"),
+        default=Path("configs/cdgp_week1_toy_cifar10_domain_guided.json"),
         help="Path to a JSON experiment config.",
     )
     parser.add_argument(
         "--pretrain-config",
         type=Path,
-        default=Path("configs/phase2_plantvillage.json"),
+        default=Path("configs/legacy/phase2_plantvillage.json"),
         help="Pretrain config path used by Gate B transfer comparison.",
     )
     parser.add_argument(

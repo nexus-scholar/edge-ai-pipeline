@@ -1,5 +1,4 @@
 {
-  "experiment_name": "phase1b_cifar10_entropy",
   "output_root": "runs",
   "dataset": {
     "name": "cifar10",
@@ -10,32 +9,38 @@
   },
   "model_name": "simple_cnn_cifar10",
   "model_params": {
-    "batch_size": 128,
-    "score_batch_size": 256,
+    "batch_size": 32,
+    "score_batch_size": 128,
     "epochs_per_round": 1,
     "learning_rate": 0.001,
     "num_workers": 0,
-    "device": "cpu",
+    "device": "cuda",
     "download": true,
-    "embedding_dim": 128,
+    "embedding_dim": 64,
     "low_contrast_factor": 0.5
   },
-  "strategy_name": "entropy",
-  "strategy_params": {},
-  "rounds": 12,
-  "query_size": 400,
+  "rounds": 6,
+  "query_size": 32,
   "seeds": [
+    7,
+    11,
     13,
-    21,
-    34
+    17,
+    19,
+    23
   ],
   "quantization_mode": "fp32",
   "teacher_enabled": false,
-  "edge_device": "desktop_cpu",
+  "edge_device": "desktop_gpu",
   "bootstrap": {
-    "pool_size": 50000,
-    "initial_labeled_size": 2000,
-    "val_size": 5000,
-    "test_size": 5000
+    "pool_size": 1024,
+    "initial_labeled_size": 96,
+    "val_size": 128,
+    "test_size": 128
+  },
+  "experiment_name": "cdgp_week1_batch_cifar10_domain_guided_w08",
+  "strategy_name": "domain_guided",
+  "strategy_params": {
+    "cdgp_domain_guided_weight": 0.8
   }
 }

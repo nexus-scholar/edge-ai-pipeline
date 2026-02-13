@@ -1,0 +1,42 @@
+{
+  "experiment_name": "cdgp_week1_toy_cifar10_domain_guided",
+  "output_root": "runs",
+  "dataset": {
+    "name": "cifar10",
+    "root": "data/cifar10",
+    "version": "1.0",
+    "task": "classification",
+    "num_classes": 10
+  },
+  "model_name": "simple_cnn_cifar10",
+  "model_params": {
+    "batch_size": 32,
+    "score_batch_size": 64,
+    "epochs_per_round": 1,
+    "learning_rate": 0.001,
+    "num_workers": 0,
+    "device": "cuda",
+    "download": true,
+    "embedding_dim": 32,
+    "low_contrast_factor": 0.5
+  },
+  "strategy_name": "domain_guided",
+  "strategy_params": {
+    "cdgp_domain_guided_weight": 0.5
+  },
+  "rounds": 3,
+  "query_size": 24,
+  "seeds": [
+    7,
+    11
+  ],
+  "quantization_mode": "fp32",
+  "teacher_enabled": false,
+  "edge_device": "desktop_gpu",
+  "bootstrap": {
+    "pool_size": 512,
+    "initial_labeled_size": 48,
+    "val_size": 64,
+    "test_size": 64
+  }
+}
