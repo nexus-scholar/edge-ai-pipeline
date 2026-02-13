@@ -115,7 +115,7 @@ class ImageFolderMobileNetRunner:
         self, round_index: int, seed: int, labeled_ids: Sequence[str]
     ) -> Mapping[str, float]:
         _set_seed(seed + round_index)
-        labeled_indices = self._filter_indices(_ids_to_indices(labeled_ids))
+        labeled_indices = self._filter_indices(self._ids_to_indices(labeled_ids))
         if not labeled_indices:
             return {
                 "loss": math.nan,
@@ -166,7 +166,7 @@ class ImageFolderMobileNetRunner:
         }
 
     def score_unlabeled(self, unlabeled_ids: Sequence[str]) -> list[SelectionCandidate]:
-        indices = self._filter_indices(_ids_to_indices(unlabeled_ids))
+        indices = self._filter_indices(self._ids_to_indices(unlabeled_ids))
         if not indices:
             return []
 
@@ -509,10 +509,6 @@ def _build_transforms(image_size: int):
         ]
     )
     return train_transform, eval_transform
-
-
-def _ids_to_indices(ids: Sequence[str]) -> list[int]:
-    return [_sample_id_to_index(sample_id) for sample_id in ids]
 
 
 def _sample_id_to_index(sample_id: str) -> int:
