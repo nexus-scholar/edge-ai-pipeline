@@ -148,7 +148,11 @@ class ImageFolderMobileNetRunner:
             epoch_total = 0
             epoch_correct = 0
             
-            for images, labels in train_loader:
+            # Inner loop for batches with progress bar
+            # leave=False to clear after epoch finishes, keeping only epoch bar
+            batch_iterator = tqdm(train_loader, desc=f"Epoch {epoch_idx+1}", leave=False, unit="batch")
+            
+            for images, labels in batch_iterator:
                 images = images.to(self._device)
                 labels = labels.to(self._device)
                 self._optimizer.zero_grad(set_to_none=True)
@@ -167,6 +171,9 @@ class ImageFolderMobileNetRunner:
                 epoch_loss += loss.item() * batch_size
                 epoch_total += batch_size
                 epoch_correct += (logits.argmax(dim=1) == labels).sum().item()
+                
+                # Update batch bar with instantaneous metrics if desired, or just let it spin
+                # batch_iterator.set_postfix(loss=f"{loss.item():.4f}")
             
             if epoch_total > 0:
                 avg_loss = epoch_loss / epoch_total
