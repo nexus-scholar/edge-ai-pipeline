@@ -139,18 +139,18 @@ class ImageFolderMobileNetRunner:
         total = 0
         correct = 0
         
-        epoch_iterator = tqdm(range(self._config.epochs_per_round), desc="Training Epochs", unit="epoch")
+        # Outer progress bar for Epochs
+        epoch_iterator = tqdm(range(self._config.epochs_per_round), desc="Training Epochs", unit="epoch", position=0)
+        
         for epoch_idx in epoch_iterator:
-            # if epoch_idx % 5 == 0:  # Log every 5 epochs to avoid spam - removed in favor of tqdm
-            #    print(f"    Epoch {epoch_idx + 1}/{self._config.epochs_per_round}")
-            
             epoch_loss = 0.0
             epoch_total = 0
             epoch_correct = 0
             
-            # Inner loop for batches with progress bar
-            # leave=False to clear after epoch finishes, keeping only epoch bar
-            batch_iterator = tqdm(train_loader, desc=f"Epoch {epoch_idx+1}", leave=False, unit="batch")
+            # Inner progress bar for Batches within the current epoch
+            # position=1 ensures it renders below the epoch bar
+            # leave=False means it disappears after the epoch finishes, keeping the UI clean
+            batch_iterator = tqdm(train_loader, desc=f"Epoch {epoch_idx+1}", leave=False, unit="batch", position=1)
             
             for images, labels in batch_iterator:
                 images = images.to(self._device)
@@ -167,14 +167,15 @@ class ImageFolderMobileNetRunner:
                 total += batch_size
                 correct += (logits.argmax(dim=1) == labels).sum().item()
                 
-                # Epoch totals for tqdm
+                # Epoch totals
                 epoch_loss += loss.item() * batch_size
                 epoch_total += batch_size
                 epoch_correct += (logits.argmax(dim=1) == labels).sum().item()
                 
-                # Update batch bar with instantaneous metrics if desired, or just let it spin
+                # Optional: Update batch bar description with current loss (can be noisy)
                 # batch_iterator.set_postfix(loss=f"{loss.item():.4f}")
             
+            # Update outer bar with epoch stats
             if epoch_total > 0:
                 avg_loss = epoch_loss / epoch_total
                 avg_acc = epoch_correct / epoch_total
