@@ -13,9 +13,12 @@ from PIL import Image
 from torch import nn
 from torch.utils.data import DataLoader, Dataset, Subset
 from torchvision.models import MobileNet_V3_Large_Weights
-from torchvision.models.detection import fasterrcnn_mobilenet_v3_large_320_fpn
+from torchvision.models.detection import fasterrcnn_mobilenet_v3_large_320_fpn, FasterRCNN
+from torchvision.models.detection.backbone_utils import BackboneWithFPN
+from torchvision.models.detection.rpn import AnchorGenerator
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.transforms import functional as tvf
+import timm
 
 from edge_al_pipeline.contracts import SelectionCandidate
 
@@ -352,10 +355,84 @@ class _CocoDetectionDataset(Dataset[tuple[torch.Tensor, dict[str, torch.Tensor]]
 def _build_detector(
     num_classes: int, pretrained_backbone: bool, backbone_name: str
 ) -> nn.Module:
+    if backbone_name.startswith("mobilenet_v4"):
+        # Map to timm name
+        timm_name_map = {
+            "mobilenet_v4_medium": "mobilenetv4_conv_medium",
+            "mobilenet_v4_large": "mobilenetv4_conv_large",
+            # Add others as needed, default to medium
+        }
+        timm_name = timm_name_map.get(backbone_name, "mobilenetv4_conv_medium")
+        
+        # Create timm feature extractor
+        # out_indices=(1, 2, 3, 4) typically corresponds to strides 4, 8, 16, 32
+        backbone_features = timm.create_model(
+            timm_name, 
+            pretrained=pretrained_backbone, 
+            features_only=True, 
+            out_indices=(1, 2, 3, 4)
+        )
+        
+        # Get output channels for FPN
+        out_channels_list = backbone_features.feature_info.channels()
+        
+        # Wrap in BackboneWithFPN
+        # return_layers mapping: {'0': '0', '1': '1', ...} or indices to str(index)
+        return_layers = {str(i): str(i) for i in range(len(out_channels_list))}
+        
+        # Hack: BackboneWithFPN expects a backbone that returns a dict
+        # timm features_only returns a list. We need a wrapper.
+        class TimmFeatureWrapper(nn.Module):
+            def __init__(self, model, return_layers):
+                super().__init__()
+                self.model = model
+                self.return_layers = return_layers
+                
+            def forward(self, x):
+                features = self.model(x)
+                return {str(i): f for i, f in enumerate(features)}
+
+        # Re-wrap properly
+        backbone_wrapper = TimmFeatureWrapper(backbone_features, return_layers)
+        
+        # Create FPN backbone
+        # 256 is standard internal representation size
+        backbone_fpn = BackboneWithFPN(
+            backbone_wrapper, 
+            return_layers=return_layers,
+            in_channels_list=out_channels_list,
+            out_channels=256
+        )
+        
+        # Anchor generator
+        # stride 4, 8, 16, 32 anchors
+        anchor_generator = AnchorGenerator(
+            sizes=((32,), (64,), (128,), (256,)),
+            aspect_ratios=((0.5, 1.0, 2.0),) * 4
+        )
+        
+        # ROI Pooler
+        roi_pooler = torch.ops.torchvision.roi_align(
+            output_size=(7, 7),
+            spatial_scale=1.0,
+            sampling_ratio=2,
+            aligned=True
+        )
+        # Actually FasterRCNN creates default roi_pooler if None, 
+        # but we need to match feature map names '0', '1', '2', '3' which BackboneWithFPN produces
+        
+        model = FasterRCNN(
+            backbone_fpn,
+            num_classes=num_classes + 1, # +1 for background
+            rpn_anchor_generator=anchor_generator,
+            # Let FasterRCNN build default roi_pooler handling '0','1','2','3' inputs from FPN
+        )
+        return model
+
     if backbone_name != "mobilenet_v3_large_320_fpn":
         raise ValueError(
             "Unsupported detection backbone_name. "
-            "Expected 'mobilenet_v3_large_320_fpn'."
+            "Expected 'mobilenet_v3_large_320_fpn' or 'mobilenet_v4_*'."
         )
     weights_backbone = (
         MobileNet_V3_Large_Weights.IMAGENET1K_V1 if pretrained_backbone else None

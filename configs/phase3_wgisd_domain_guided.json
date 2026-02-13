@@ -10,7 +10,7 @@
     },
     "model_name": "wgisd_detection_fasterrcnn_mobilenetv3",
     "model_params": {
-        "backbone_name": "mobilenet_v3_large_320_fpn",
+        "backbone_name": "mobilenet_v4_medium",
         "pretrained_backbone": true,
         "images_root": "data/wgisd/data",
         "annotations_path": "data/wgisd/coco_annotations.json",
