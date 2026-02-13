@@ -46,4 +46,15 @@ Reviewers love to see *why* a model fails.
 ## 4. Final Assessment
 The **technical foundation** and **automated pipeline** you have built are at a **Master's/PhD level**. The results showing a jump from 0.20 to 0.55 mAP with fewer than 100 images are a very strong "selling point" for Active Learning efficiency.
 
-**Next Immediate Step:** Once the current "Domain Guided" run finishes, set up a "Random Baseline" run to generate your comparison data.
+### E. Benchmarking against State-of-the-Art (SOTA)
+
+Based on your literature review, our results should be positioned as follows:
+
+| Method | Architecture | Samples | mAP@50 / F1 | Hardware Profile |
+| :--- | :--- | :--- | :--- | :--- |
+| **GrapeUL-YOLO (2025)** | YOLOv11 | 242 (Full) | 0.91 mAP | 16.9ms (Edge) |
+| **Mask R-CNN (SOTA)** | ResNet-101 | 242 (Full) | 0.84 F1 | High Latency (Cloud) |
+| **Grounding-DINO** | Transformer | 4 (Few-shot) | 0.65 mAP | Extremely Heavy |
+| **Our Pipeline (DG-AL)** | **MobileNetV4** | **124 (50%)** | **0.59 F1** | **< 10ms (Predicted)** |
+
+**Strategic Positioning:** *"Our approach achieves 70% of SOTA F1-performance while using only 50% of the labels and maintaining a MobileNetV4 footprint optimized for 2026-era mobile accelerators."*
