@@ -1,0 +1,39 @@
+{
+    "experiment_name": "phase3_wgisd_entropy_v1",
+    "seeds": [42, 101, 999],
+    "dataset": {
+        "name": "wgisd",
+        "root": "/content/data/wgisd",
+        "version": "1.0",
+        "task": "detection",
+        "num_classes": 5
+    },
+    "model_name": "wgisd_detection_fasterrcnn_mobilenetv3",
+    "model_params": {
+        "backbone_name": "mobilenet_v4_medium",
+        "pretrained_backbone": true,
+        "images_root": "data/wgisd/data",
+        "annotations_path": "data/wgisd/coco_annotations/train_bbox_instances.json",
+        "batch_size": 4,
+        "device": "cuda",
+        "score_batch_size": 4,
+        "epochs_per_round": 10,
+        "learning_rate": 0.0005,
+        "uncertainty_alpha": 0.5,
+        "localization_tta": true,
+        "score_threshold": 0.25
+    },
+    "strategy_name": "entropy",
+    "strategy_params": {
+        "uncertainty_key": "uncertainty_classification"
+    },
+    "rounds": 6,
+    "query_size": 20,
+    "bootstrap": {
+        "pool_size": 242,
+        "initial_labeled_size": 24,
+        "val_size": 40,
+        "test_size": 40
+    },
+    "output_root": "runs/phase3_wgisd"
+}
