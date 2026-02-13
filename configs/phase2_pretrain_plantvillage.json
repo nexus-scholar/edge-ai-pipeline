@@ -1,0 +1,32 @@
+{
+    "experiment_name": "phase2_pretrain_plantvillage_mobilenetv3",
+    "random_seed": 42,
+    "dataset": {
+        "name": "plant_village",
+        "task": "classification",
+        "path": "data/plant_village",
+        "image_size": [224, 224],
+        "batch_size": 32,
+        "num_workers": 2
+    },
+    "model": {
+        "architecture": "mobilenet_v3_large",
+        "pretrained": true,
+        "num_classes": 38,
+        "dropout_rate": 0.2
+    },
+    "training": {
+        "epochs": 20,
+        "learning_rate": 0.001,
+        "weight_decay": 1e-4,
+        "optimizer": "adam",
+        "scheduler": "cosine",
+        "checkpoint_dir": "checkpoints/phase2_pretrain"
+    },
+    "active_learning": {
+        "strategy": "random",
+        "initial_ratio": 1.0,
+        "rounds": 0
+    },
+    "output_root": "runs/phase2_pretrain"
+}
