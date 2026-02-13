@@ -150,7 +150,15 @@ class ImageFolderMobileNetRunner:
             # Inner progress bar for Batches within the current epoch
             # position=1 ensures it renders below the epoch bar
             # leave=False means it disappears after the epoch finishes, keeping the UI clean
-            batch_iterator = tqdm(train_loader, desc=f"Epoch {epoch_idx+1}", leave=False, unit="batch", position=1)
+            # mininterval=10.0 reduces update frequency to stop log flooding in Colab
+            batch_iterator = tqdm(
+                train_loader, 
+                desc=f"Epoch {epoch_idx+1}", 
+                leave=False, 
+                unit="batch", 
+                position=1,
+                mininterval=10.0
+            )
             
             for images, labels in batch_iterator:
                 images = images.to(self._device)
