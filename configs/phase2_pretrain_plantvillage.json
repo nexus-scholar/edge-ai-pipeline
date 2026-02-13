@@ -1,32 +1,31 @@
 {
-    "experiment_name": "phase2_pretrain_plantvillage_mobilenetv3",
-    "random_seed": 42,
+    "experiment_name": "phase2_pretrain_plantvillage_mobilenetv4",
+    "seeds": [42],
     "dataset": {
         "name": "plant_village",
+        "root": "data/plant_village",
+        "version": "1.0",
         "task": "classification",
-        "path": "data/plant_village",
-        "image_size": [224, 224],
+        "num_classes": 38
+    },
+    "model_name": "imagefolder_classifier",
+    "model_params": {
+        "backbone_name": "mobilenet_v4_medium",
+        "pretrained_backbone": true,
+        "image_size": 224,
         "batch_size": 32,
-        "num_workers": 2
+        "epochs_per_round": 20,
+        "learning_rate": 0.001
     },
-    "model": {
-        "architecture": "mobilenet_v4_medium",
-        "pretrained": true,
-        "num_classes": 38,
-        "dropout_rate": 0.2
-    },
-    "training": {
-        "epochs": 20,
-        "learning_rate": 0.001,
-        "weight_decay": 1e-4,
-        "optimizer": "adam",
-        "scheduler": "cosine",
-        "checkpoint_dir": "checkpoints/phase2_pretrain"
-    },
-    "active_learning": {
-        "strategy": "random",
-        "initial_ratio": 1.0,
-        "rounds": 0
+    "strategy_name": "random",
+    "strategy_params": {},
+    "rounds": 1,
+    "query_size": 1,
+    "bootstrap": {
+        "pool_size": 50000,
+        "initial_labeled_size": 40000,
+        "val_size": 5000,
+        "test_size": 5000
     },
     "output_root": "runs/phase2_pretrain"
 }
