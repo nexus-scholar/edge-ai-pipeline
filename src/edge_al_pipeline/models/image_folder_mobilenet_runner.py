@@ -131,11 +131,15 @@ class ImageFolderMobileNetRunner:
             num_workers=self._config.num_workers,
         )
 
+        print(f"    Training on {len(labeled_indices)} samples for {self._config.epochs_per_round} epochs...")
+
         self._model.train()
         total_loss = 0.0
         total = 0
         correct = 0
-        for _ in range(self._config.epochs_per_round):
+        for epoch_idx in range(self._config.epochs_per_round):
+            if epoch_idx % 5 == 0:  # Log every 5 epochs to avoid spam
+                print(f"    Epoch {epoch_idx + 1}/{self._config.epochs_per_round}")
             for images, labels in train_loader:
                 images = images.to(self._device)
                 labels = labels.to(self._device)
