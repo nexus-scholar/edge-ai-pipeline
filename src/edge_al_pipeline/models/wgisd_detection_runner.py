@@ -408,13 +408,16 @@ class _CocoDetectionDataset(Dataset[tuple[torch.Tensor, dict[str, torch.Tensor]]
 def _build_detector(
     num_classes: int, pretrained_backbone: bool, backbone_name: str
 ) -> nn.Module:
-    if backbone_name.startswith("mobilenet_v4"):
-        # Map to timm name
+    if backbone_name.startswith("mobilenet"):
+        # Map our internal names to timm model names
         timm_name_map = {
+            "mobilenet_v3_small": "mobilenetv3_small_100",
+            "mobilenet_v3_large": "mobilenetv3_large_100",
+            "mobilenet_v4_small": "mobilenetv4_conv_small",
             "mobilenet_v4_medium": "mobilenetv4_conv_medium",
             "mobilenet_v4_large": "mobilenetv4_conv_large",
         }
-        timm_name = timm_name_map.get(backbone_name, "mobilenetv4_conv_medium")
+        timm_name = timm_name_map.get(backbone_name, backbone_name)
         
         # Create timm feature extractor
         # out_indices=(1, 2, 3, 4) typically corresponds to strides 4, 8, 16, 32
@@ -454,7 +457,7 @@ def _build_detector(
             out_channels=256
         )
         
-        # Anchor generator
+        # Anchor generator (5 levels for FPN + LastLevelMaxPool)
         anchor_generator = AnchorGenerator(
             sizes=((32,), (64,), (128,), (256,), (512,)),
             aspect_ratios=((0.5, 1.0, 2.0),) * 5
@@ -467,21 +470,22 @@ def _build_detector(
         )
         return model
 
-    if backbone_name != "mobilenet_v3_large_320_fpn":
-        raise ValueError(
-            "Unsupported detection backbone_name. "
-            "Expected 'mobilenet_v3_large_320_fpn' or 'mobilenet_v4_*'."
+    if backbone_name == "mobilenet_v3_large_320_fpn":
+        weights_backbone = (
+            MobileNet_V3_Large_Weights.IMAGENET1K_V1 if pretrained_backbone else None
         )
-    weights_backbone = (
-        MobileNet_V3_Large_Weights.IMAGENET1K_V1 if pretrained_backbone else None
+        model = fasterrcnn_mobilenet_v3_large_320_fpn(
+            weights=None,
+            weights_backbone=weights_backbone,
+        )
+        in_features = model.roi_heads.box_predictor.cls_score.in_features
+        model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes + 1)
+        return model
+
+    raise ValueError(
+        f"Unsupported detection backbone_name: {backbone_name}. "
+        "Expected 'mobilenet_v3_large_320_fpn' or 'mobilenet_*'."
     )
-    model = fasterrcnn_mobilenet_v3_large_320_fpn(
-        weights=None,
-        weights_backbone=weights_backbone,
-    )
-    in_features = model.roi_heads.box_predictor.cls_score.in_features
-    model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes + 1)
-    return model
 
 
 def classification_uncertainty_from_scores(scores: torch.Tensor, top_n: int) -> float:

@@ -7,12 +7,12 @@ CLASSIFICATION_BACKBONES = frozenset(
     {
         "mobilenet_v3_small",
         "mobilenet_v3_large",
+        "mobilenetv3_small_100",
+        "mobilenetv3_large_100",
         "mobilenet_v4",
         "mobilenet_v4_small",
         "mobilenet_v4_medium",
         "mobilenet_v4_large",
-        "mobilenet_v4_hybrid_medium",
-        "mobilenet_v4_hybrid_large",
         "mobilenetv4_conv_small",
         "mobilenetv4_conv_medium",
         "mobilenetv4_conv_large",
@@ -22,7 +22,13 @@ CLASSIFICATION_BACKBONES = frozenset(
         "resnet50",
     }
 )
-DETECTION_BACKBONES = frozenset({"mobilenet_v3_large_320_fpn"})
+DETECTION_BACKBONES = frozenset({
+    "mobilenet_v3_large_320_fpn",
+    "mobilenet_v3_large",
+    "mobilenet_v4_medium",
+    "mobilenet_v4_small",
+    "mobilenet_v4_large"
+})
 SUPPORTED_BACKBONES = CLASSIFICATION_BACKBONES | DETECTION_BACKBONES
 
 _MODEL_NAME_TO_BACKBONE = {

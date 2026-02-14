@@ -1,9 +1,9 @@
 {
-    "experiment_name": "phase2_pretrain_plantvillage_mobilenetv4",
+    "experiment_name": "phase2_pretrain_pv_mobilenetv4",
     "seeds": [42],
     "dataset": {
-        "name": "plant_village",
-        "root": "/content/data/plant_village",
+        "name": "plantvillage",
+        "root": "data/agri_external_validation",
         "version": "1.0",
         "task": "classification",
         "num_classes": 38
@@ -12,16 +12,15 @@
     "model_params": {
         "backbone_name": "mobilenet_v4_medium",
         "pretrained_backbone": true,
-        "image_size": 224,
+        "device": "cuda",
         "batch_size": 32,
         "epochs_per_round": 20,
-        "learning_rate": 0.001,
-        "device": "cuda"
+        "learning_rate": 0.001
     },
     "strategy_name": "random",
     "strategy_params": {},
-    "rounds": 1,
-    "query_size": 1,
+    "rounds": 0,
+    "query_size": 0,
     "bootstrap": {
         "pool_size": 70000,
         "initial_labeled_size": 40000,

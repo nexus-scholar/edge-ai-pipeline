@@ -8,14 +8,14 @@
         "task": "classification",
         "num_classes": 38
     },
-    "model_name": "image_folder_mobilenet_v4",
+    "model_name": "imagefolder_classifier",
     "model_params": {
         "backbone_name": "mobilenet_v3_large",
-        "pretrained": true,
+        "pretrained_backbone": true,
         "device": "cuda",
         "batch_size": 32,
         "epochs_per_round": 20,
-        "lr": 0.001
+        "learning_rate": 0.001
     },
     "strategy_name": "random",
     "strategy_params": {},
