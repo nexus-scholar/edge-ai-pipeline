@@ -29,7 +29,7 @@
         "uncertainty_key": "uncertainty_combined",
         "domain_confusion_key": "det_count"
     },
-    "rounds": 6,
+    "rounds": 10,
     "query_size": 20,
     "bootstrap": {
         "pool_size": 242,
