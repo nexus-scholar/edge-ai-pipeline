@@ -304,6 +304,15 @@ class WgisdDetectionRunner:
             "map50_proxy": map50_proxy,
         }
 
+    def export_backbone(self, target_path: Path) -> Path:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save({
+            "model_state_dict": self._model.state_dict(),
+            "config": self._config,
+            "num_classes": self._num_classes
+        }, target_path)
+        return target_path
+
     def _predict_single(self, image: torch.Tensor) -> dict[str, torch.Tensor]:
         image_for_model = image.to(self._score_device)
         outputs = self._inference_model([image_for_model])

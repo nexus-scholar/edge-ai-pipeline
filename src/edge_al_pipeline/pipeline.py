@@ -88,6 +88,14 @@ class ActiveLearningPipeline:
                 )
             print(f"    Train Metrics: {train_metrics}")
             self.persist_metrics(round_index, seed, "train", dict(train_metrics))
+            
+            # Save checkpoint for the current round
+            checkpoint_name = f"model_round_{round_index}_seed_{seed}.pt"
+            if hasattr(self.model_runner, "export_backbone"):
+                self.model_runner.export_backbone(
+                    self.artifacts.run_dir / "checkpoints" / checkpoint_name
+                )
+                
             self.artifacts.append_profile(self.profiler.flush())
             acquired = self.run_round(round_index=round_index, seed=seed)
             if not acquired:
