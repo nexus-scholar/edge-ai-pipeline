@@ -14,7 +14,6 @@ METRICS_OF_INTEREST = ["map50_proxy_test", "precision50_test", "recall50_test", 
 def load_data():
     all_data = []
     # Find all metrics.csv files in phase3 runs
-    # Structure: runs/phase3_wgisd/EXP_NAME/SEED/metrics.csv
     files = glob.glob(os.path.join(RUNS_DIR, "**", "metrics.csv"), recursive=True)
     
     if not files:
@@ -25,10 +24,7 @@ def load_data():
 
     for f in files:
         try:
-            # Parse path to get experiment info
             path = Path(f)
-            # Example: runs/phase3_wgisd/phase3_wgisd_domain_guided_v1/42/metrics.csv
-            # We assume the parent folder of the seed folder is the experiment name
             seed_dir = path.parent
             exp_dir = seed_dir.parent
             
@@ -37,30 +33,11 @@ def load_data():
             
             df = pd.read_csv(f)
             
-            # Filter for rows that have the metrics we care about
-            # In our runner, metrics are logged with round_index
-            # We want to track these metrics over rounds.
-            
-            # The metrics.csv format from Edge AL pipeline usually has:
-            # round_index, epoch, metric, value, ...
-            
-            # We want to group by round_index and extract the final value for each metric per round
-            # Or if it's logged per epoch, we might want the last epoch of the round.
-            
-            # Let's inspect the columns. Usually: round_index, metric, value, phase/split
-            
-            # Pivot the table
             if 'round_index' in df.columns and 'metric' in df.columns and 'value' in df.columns:
-                 # Filter for the metrics of interest
                 df_filtered = df[df['metric'].isin(METRICS_OF_INTEREST)]
-                
-                # We might have multiple values per round (e.g. from multiple epochs). 
-                # We typically want the last one (final epoch) or the one explicitly logged as round summary.
-                # Assuming the logger logs the round summary at the end of the round.
-                
-                # Let's drop duplicates keeping the last one for each round/metric
                 df_dedup = df_filtered.drop_duplicates(subset=['round_index', 'metric'], keep='last')
                 
+                # Pivot only numeric values
                 df_pivot = df_dedup.pivot(index='round_index', columns='metric', values='value').reset_index()
                 df_pivot['experiment'] = exp_name
                 df_pivot['seed'] = seed
@@ -75,33 +52,40 @@ def load_data():
     return pd.concat(all_data, ignore_index=True)
 
 def plot_metric(df, metric_name, output_path):
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(12, 7))
     
-    experiments = df['experiment'].unique()
+    experiments = sorted(df['experiment'].unique())
+    # Define colors and markers for visual distinction
+    colors = plt.cm.tab10(np.linspace(0, 1, len(experiments)))
+    markers = ['o', 's', '^', 'D', 'x', 'v', '*', 'p']
     
-    for exp in experiments:
+    for i, exp in enumerate(experiments):
         subset = df[df['experiment'] == exp]
         
-        # Group by round_index to calculate mean and std across seeds
-        grouped = subset.groupby('round_index')[metric_name].agg(['mean', 'count', 'std'])
+        # Group only numeric columns for mean/std
+        numeric_cols = [metric_name]
+        grouped = subset.groupby('round_index')[numeric_cols].agg(['mean', 'std'])
         
         rounds = grouped.index
-        means = grouped['mean']
-        stds = grouped['std'].fillna(0)
+        means = grouped[(metric_name, 'mean')]
+        stds = grouped[(metric_name, 'std')].fillna(0)
+        
+        # Clean label for plot
+        label = exp.replace('phase3_wgisd_', '').replace('_adapted', '')
         
         # Plot mean
-        plt.plot(rounds, means, label=f"{exp} (n={grouped['count'].max()})", marker='o')
+        plt.plot(rounds, means, label=label, marker=markers[i % len(markers)], color=colors[i], linewidth=2)
         
-        # Fill standard deviation (or SE)
-        plt.fill_between(rounds, means - stds, means + stds, alpha=0.2)
+        # Fill standard deviation
+        plt.fill_between(rounds, means - stds, means + stds, alpha=0.1, color=colors[i])
 
-    plt.title(f"Phase 3: {metric_name} over Active Learning Rounds")
-    plt.xlabel("AL Round")
-    plt.ylabel(metric_name)
-    plt.legend()
-    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.title(f"Benchmark: {metric_name} over AL Rounds", fontsize=14)
+    plt.xlabel("AL Round (20 samples per round)", fontsize=12)
+    plt.ylabel(metric_name, fontsize=12)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(True, linestyle='--', alpha=0.6)
     plt.tight_layout()
-    plt.savefig(output_path)
+    plt.savefig(output_path, dpi=300)
     plt.close()
 
 def main():
@@ -122,7 +106,8 @@ def main():
             print(f"Plotting {metric} to {output_file}...")
             plot_metric(df, metric, output_file)
     
-    # Save a summary CSV
+    # Save a summary CSV (grouping experiment and round)
+    # Ensure only numeric columns are averaged
     summary = df.groupby(['experiment', 'round_index'])[METRICS_OF_INTEREST].agg(['mean', 'std'])
     summary_path = os.path.join(OUTPUT_DIR, "phase3_summary.csv")
     summary.to_csv(summary_path)

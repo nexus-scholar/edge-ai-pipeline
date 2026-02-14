@@ -4,53 +4,47 @@ import os
 import sys
 from pathlib import Path
 
-def main():
-    # 1. Find the latest Phase 2 backbone
+def find_latest_backbone(backbone_type):
+    # backbone_type: 'mobilenetv3' or 'mobilenetv4'
     phase2_runs_dir = Path("runs/phase2_pretrain")
-    if not phase2_runs_dir.exists():
-        print(f"Error: Phase 2 runs directory not found: {phase2_runs_dir}")
-        sys.exit(1)
-
-    # Search for all .pt files recursively
-    checkpoint_pattern = str(phase2_runs_dir / "**" / "agri_backbone_seed*.pt")
-    checkpoints = glob.glob(checkpoint_pattern, recursive=True)
-
+    pattern = str(phase2_runs_dir / f"*_{backbone_type}*" / "**" / "agri_backbone_seed*.pt")
+    checkpoints = glob.glob(pattern, recursive=True)
     if not checkpoints:
-        print("Error: No Phase 2 backbone checkpoints found!")
-        sys.exit(1)
+        return None
+    return max(checkpoints, key=os.path.getmtime)
 
-    # Sort by modification time (newest first)
-    latest_checkpoint = max(checkpoints, key=os.path.getmtime)
-    print(f"Found latest backbone: {latest_checkpoint}")
+def main():
+    backbones = {
+        "v4": find_latest_backbone("mobilenetv4"),
+        "v3": find_latest_backbone("mobilenetv3")
+    }
 
-    # 2. Process each Phase 3 config template
-    config_templates = [
-        "configs/phase3_wgisd_domain_guided.json",
-        "configs/phase3_wgisd_random.json",
-        "configs/phase3_wgisd_entropy.json"
-    ]
-
-    for template_path_str in config_templates:
-        template_path = Path(template_path_str)
-        if not template_path.exists():
-            print(f"Warning: Template config not found: {template_path}")
-            continue
-
-        with open(template_path, "r") as f:
-            config = json.load(f)
-
-        # 3. Inject the backbone path
-        config["model_params"]["backbone_checkpoint"] = str(Path(latest_checkpoint).resolve())
-        
-        # 4. Save to an adapted config file
-        name_stem = template_path.stem
-        output_config_path = Path(f"configs/{name_stem}_agri_adapted.json")
-        with open(output_config_path, "w") as f:
-            json.dump(config, f, indent=4)
-
-        print(f"Created adapted config: {output_config_path}")
+    strategies = ["domain_guided", "random", "entropy"]
     
-    print("Ready for comprehensive Phase 3 execution.")
+    for b_key, b_path in backbones.items():
+        if not b_path:
+            print(f"Warning: No backbone found for {b_key}")
+            continue
+            
+        for strategy in strategies:
+            template_path = Path(f"configs/phase3_wgisd_{strategy}.json")
+            if not template_path.exists():
+                print(f"Error: Template not found: {template_path}")
+                continue
+
+            with open(template_path, "r") as f:
+                config = json.load(f)
+
+            # Inject backbone path and name
+            config["experiment_name"] = f"phase3_wgisd_{strategy}_{b_key}"
+            config["model_params"]["backbone_checkpoint"] = str(Path(b_path).resolve())
+            config["model_params"]["backbone_name"] = "mobilenet_v4_medium" if b_key == "v4" else "mobilenet_v3_large_320_fpn"
+            
+            # Save adapted config
+            out_path = Path(f"configs/phase3_wgisd_{strategy}_{b_key}_adapted.json")
+            with open(out_path, "w") as f:
+                json.dump(config, f, indent=4)
+            print(f"Created: {out_path}")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,31 @@
+{
+    "experiment_name": "phase2_pretrain_pv_mobilenetv3",
+    "seeds": [42],
+    "dataset": {
+        "name": "plantvillage",
+        "root": "data/agri_external_validation",
+        "version": "1.0",
+        "task": "classification",
+        "num_classes": 38
+    },
+    "model_name": "image_folder_mobilenet_v4",
+    "model_params": {
+        "backbone_name": "mobilenetv3_large_100",
+        "pretrained": true,
+        "device": "cuda",
+        "batch_size": 32,
+        "epochs_per_round": 20,
+        "lr": 0.001
+    },
+    "strategy_name": "random",
+    "strategy_params": {},
+    "rounds": 0,
+    "query_size": 0,
+    "bootstrap": {
+        "pool_size": 70000,
+        "initial_labeled_size": 40000,
+        "val_size": 5000,
+        "test_size": 5000
+    },
+    "output_root": "runs/phase2_pretrain"
+}

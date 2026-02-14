@@ -1,9 +1,9 @@
 {
-    "experiment_name": "phase3_wgisd_domain_guided_v1",
+    "experiment_name": "phase3_wgisd_domain_guided_template",
     "seeds": [42, 101, 999],
     "dataset": {
         "name": "wgisd",
-        "root": "/content/data/wgisd",
+        "root": "data/wgisd",
         "version": "1.0",
         "task": "detection",
         "num_classes": 5
