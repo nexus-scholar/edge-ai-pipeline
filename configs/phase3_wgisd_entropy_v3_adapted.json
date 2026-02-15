@@ -13,7 +13,7 @@
         "backbone_name": "mobilenet_v3_large",
         "pretrained_backbone": true,
         "images_root": "/kaggle/working/wgisd_repo/data",
-        "annotations_path": "/kaggle/working/wgisd_repo/datacoco_annotations/train_bbox_instances.json",
+        "annotations_path": "/kaggle/working/wgisd_repo/data/coco_annotations/train_bbox_instances.json",
         "batch_size": 4,
         "device": "cuda",
         "score_batch_size": 4,
